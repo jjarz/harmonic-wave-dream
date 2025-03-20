@@ -1,7 +1,21 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { generateWaveform, generateCircular, getDynamicColor } from '@/utils/visualizerHelpers';
+import { 
+  generateWaveform, 
+  generateCircular, 
+  getThemeColor, 
+  colorThemes, 
+  type ColorTheme 
+} from '@/utils/visualizerHelpers';
+import { 
+  Select, 
+  SelectContent, 
+  SelectGroup, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 interface VisualizerProps {
   frequencyData: Uint8Array;
@@ -25,6 +39,7 @@ const Visualizer: React.FC<VisualizerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [visualizerMode, setVisualizerMode] = useState<'bars' | 'circular' | 'wave'>(visualizationType);
+  const [colorTheme, setColorTheme] = useState<ColorTheme>('blue');
   const requestRef = useRef<number>();
   const previousTimeRef = useRef<number>();
 
@@ -77,15 +92,15 @@ const Visualizer: React.FC<VisualizerProps> = ({
       // Draw visualizer based on mode
       if (frequencyData.length) {
         if (visualizerMode === 'bars') {
-          drawBarVisualizer(ctx, frequencyData, dimensions, sensitivity, volume);
+          drawBarVisualizer(ctx, frequencyData, dimensions, sensitivity, volume, colorTheme);
         } else if (visualizerMode === 'circular') {
-          drawCircularVisualizer(ctx, frequencyData, dimensions, sensitivity, volume);
+          drawCircularVisualizer(ctx, frequencyData, dimensions, sensitivity, volume, colorTheme);
         } else if (visualizerMode === 'wave') {
-          drawWaveVisualizer(ctx, timeData, dimensions, sensitivity, volume);
+          drawWaveVisualizer(ctx, timeData, dimensions, sensitivity, volume, colorTheme);
         }
       } else {
         // Draw placeholder visualizer when no audio data
-        drawPlaceholderVisualizer(ctx, dimensions);
+        drawPlaceholderVisualizer(ctx, dimensions, colorTheme);
       }
       
       // Continue animation loop
@@ -99,7 +114,7 @@ const Visualizer: React.FC<VisualizerProps> = ({
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [frequencyData, timeData, dimensions, visualizerMode, isPlaying, sensitivity, volume]);
+  }, [frequencyData, timeData, dimensions, visualizerMode, isPlaying, sensitivity, volume, colorTheme]);
 
   // Change visualizer mode when prop changes
   useEffect(() => {
@@ -112,25 +127,27 @@ const Visualizer: React.FC<VisualizerProps> = ({
     data: Uint8Array,
     dimensions: { width: number; height: number },
     sensitivity: number,
-    volume: number
+    volume: number,
+    theme: ColorTheme
   ) => {
     const { width, height } = dimensions;
     const numBars = Math.min(128, Math.floor(width / 8));
     const values = generateWaveform(data, numBars, sensitivity);
     const barWidth = Math.max(2, (width / numBars) - 2);
     
-    // Create gradient
-    const gradient = ctx.createLinearGradient(0, height, 0, 0);
-    gradient.addColorStop(0, 'rgba(190, 227, 248, 0.7)');
-    gradient.addColorStop(0.5, 'rgba(137, 207, 240, 0.8)');
-    gradient.addColorStop(1, 'rgba(96, 183, 231, 0.9)');
+    // Set up glow effect
+    ctx.shadowColor = colorThemes[theme].glow;
+    ctx.shadowBlur = 10;
     
     values.forEach((value, i) => {
+      const position = i / numBars;
       const x = (i * (barWidth + 2)) + (width - (numBars * (barWidth + 2) - 2)) / 2;
-      const barHeight = Math.max(4, value * height * 0.8 * volume);
       
-      // Bar glow effect
-      ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+      // More dramatic height variation based on position and value
+      const positionEffect = 0.7 + Math.sin(position * Math.PI) * 0.6; // Varies between 0.1 and 1.3
+      const barHeight = Math.max(4, value * height * 0.8 * volume * positionEffect);
+      
+      // Intensity-based shadow
       ctx.shadowBlur = 10 * value;
       
       // Draw bar with rounded top
@@ -142,14 +159,15 @@ const Visualizer: React.FC<VisualizerProps> = ({
       ctx.lineTo(x + barWidth, height);
       ctx.closePath();
       
-      ctx.fillStyle = gradient;
+      // Get color based on position and value
+      ctx.fillStyle = getThemeColor(position, value, theme);
       ctx.fill();
       
       // Add small bubble on top for active bars
       if (value > 0.1) {
         ctx.beginPath();
         ctx.arc(x + barWidth / 2, height - barHeight, barWidth / 2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillStyle = colorThemes[theme].highlight;
         ctx.fill();
       }
     });
@@ -164,36 +182,46 @@ const Visualizer: React.FC<VisualizerProps> = ({
     data: Uint8Array,
     dimensions: { width: number; height: number },
     sensitivity: number,
-    volume: number
+    volume: number,
+    theme: ColorTheme
   ) => {
     const { width, height } = dimensions;
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(width, height) * 0.35;
+    const baseRadius = Math.min(width, height) * 0.35;
     const numPoints = 128;
     const values = generateCircular(data, numPoints, sensitivity);
     
     // Draw central glowing orb
-    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 0.5);
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-    gradient.addColorStop(0.5, 'rgba(190, 227, 248, 0.7)');
+    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, baseRadius * 0.5);
+    gradient.addColorStop(0, colorThemes[theme].highlight);
+    gradient.addColorStop(0.5, colorThemes[theme].gradient[1]);
     gradient.addColorStop(1, 'rgba(137, 207, 240, 0.1)');
     
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius * 0.2, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, baseRadius * 0.2, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+    ctx.shadowColor = colorThemes[theme].glow;
     ctx.shadowBlur = 20;
     ctx.fill();
     
     // Reset shadow for performance during line drawing
     ctx.shadowBlur = 0;
     
-    // Draw circular wave
+    // Draw circular wave with more pronounced in/out movement
     ctx.beginPath();
+    
+    const time = Date.now() / 1000;
+    const pulseFactor = 0.1 + Math.sin(time) * 0.05; // Subtle global pulse effect
+    
     values.forEach((value, i) => {
       const angle = (i / numPoints) * Math.PI * 2;
-      const distance = radius + (value * radius * 0.5 * volume);
+      const position = i / numPoints;
+      
+      // Apply more dynamic distance variation
+      const waveEffect = 0.2 * Math.sin(angle * 3 + time * 2); // Adds a moving wave pattern
+      const distance = baseRadius + ((value + waveEffect) * baseRadius * 0.8 * volume);
+      
       const x = centerX + Math.cos(angle) * distance;
       const y = centerY + Math.sin(angle) * distance;
       
@@ -205,20 +233,25 @@ const Visualizer: React.FC<VisualizerProps> = ({
     });
     
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.strokeStyle = colorThemes[theme].gradient[0];
     ctx.lineWidth = 2;
     ctx.stroke();
     
     // Add subtle glow to the circle
-    ctx.strokeStyle = 'rgba(190, 227, 248, 0.3)';
+    ctx.strokeStyle = colorThemes[theme].gradient[1];
     ctx.lineWidth = 4;
     ctx.stroke();
     
     // Draw connecting lines from center to high-value points for more visual interest
     values.forEach((value, i) => {
-      if (value > 0.6) {
+      if (value > 0.5) {
         const angle = (i / numPoints) * Math.PI * 2;
-        const distance = radius + (value * radius * 0.5 * volume);
+        const position = i / numPoints;
+        
+        // More dynamic distance calculation
+        const waveEffect = 0.2 * Math.sin(angle * 3 + time * 2);
+        const distance = baseRadius + ((value + waveEffect) * baseRadius * 0.8 * volume);
+        
         const x = centerX + Math.cos(angle) * distance;
         const y = centerY + Math.sin(angle) * distance;
         
@@ -226,9 +259,9 @@ const Visualizer: React.FC<VisualizerProps> = ({
         ctx.moveTo(centerX, centerY);
         ctx.lineTo(x, y);
         
-        const intensity = value - 0.6;
-        ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.5})`;
-        ctx.lineWidth = 1;
+        const intensity = (value - 0.5) * 2; // Scale to 0-1 range
+        ctx.strokeStyle = getThemeColor(position, intensity, theme);
+        ctx.lineWidth = 1 + intensity * 2;
         ctx.stroke();
       }
     });
@@ -240,7 +273,8 @@ const Visualizer: React.FC<VisualizerProps> = ({
     data: Uint8Array,
     dimensions: { width: number; height: number },
     sensitivity: number,
-    volume: number
+    volume: number,
+    theme: ColorTheme
   ) => {
     const { width, height } = dimensions;
     const centerY = height / 2;
@@ -248,16 +282,16 @@ const Visualizer: React.FC<VisualizerProps> = ({
     // No data case
     if (!data.length) return;
     
-    // Create gradient
+    // Create gradient using theme colors
     const gradient = ctx.createLinearGradient(0, 0, width, 0);
-    gradient.addColorStop(0, 'rgba(137, 207, 240, 0.8)');
-    gradient.addColorStop(0.5, 'rgba(190, 227, 248, 0.9)');
-    gradient.addColorStop(1, 'rgba(137, 207, 240, 0.8)');
+    gradient.addColorStop(0, colorThemes[theme].gradient[0]);
+    gradient.addColorStop(0.5, colorThemes[theme].gradient[1]);
+    gradient.addColorStop(1, colorThemes[theme].gradient[2]);
     
     // Set up wave line style
     ctx.lineWidth = 3;
     ctx.strokeStyle = gradient;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+    ctx.shadowColor = colorThemes[theme].glow;
     ctx.shadowBlur = 10;
     
     // Draw waveform
@@ -298,7 +332,7 @@ const Visualizer: React.FC<VisualizerProps> = ({
       x += sliceWidth;
     }
     
-    ctx.strokeStyle = 'rgba(190, 227, 248, 0.4)';
+    ctx.strokeStyle = `${colorThemes[theme].gradient[0].replace('0.8', '0.4')}`;
     ctx.stroke();
     
     // Reset shadow for performance
@@ -308,7 +342,8 @@ const Visualizer: React.FC<VisualizerProps> = ({
   // Placeholder visualizer when no audio is playing
   const drawPlaceholderVisualizer = (
     ctx: CanvasRenderingContext2D,
-    dimensions: { width: number; height: number }
+    dimensions: { width: number; height: number },
+    theme: ColorTheme
   ) => {
     const { width, height } = dimensions;
     const centerX = width / 2;
@@ -323,9 +358,9 @@ const Visualizer: React.FC<VisualizerProps> = ({
       centerX, centerY, 0,
       centerX, centerY, width * 0.25 * pulseSize
     );
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
-    gradient.addColorStop(0.7, 'rgba(190, 227, 248, 0.1)');
-    gradient.addColorStop(1, 'rgba(137, 207, 240, 0)');
+    gradient.addColorStop(0, colorThemes[theme].highlight.replace('0.8', '0.2'));
+    gradient.addColorStop(0.7, colorThemes[theme].gradient[1].replace('0.9', '0.1'));
+    gradient.addColorStop(1, colorThemes[theme].gradient[0].replace('0.8', '0'));
     
     ctx.beginPath();
     ctx.arc(centerX, centerY, width * 0.25 * pulseSize, 0, Math.PI * 2);
@@ -346,7 +381,7 @@ const Visualizer: React.FC<VisualizerProps> = ({
         className="w-full h-full"
       />
       
-      {/* Mode selector */}
+      {/* Mode selector and color themes */}
       <div className="absolute top-4 right-4 flex gap-2 glass-panel rounded-lg p-1">
         <button 
           onClick={() => setVisualizerMode('bars')}
@@ -381,6 +416,27 @@ const Visualizer: React.FC<VisualizerProps> = ({
         >
           Wave
         </button>
+      </div>
+      
+      {/* Color theme selector */}
+      <div className="absolute top-4 left-4 glass-panel rounded-lg py-1 px-2">
+        <Select
+          value={colorTheme}
+          onValueChange={(value: ColorTheme) => setColorTheme(value)}
+        >
+          <SelectTrigger className="w-[120px] h-8 text-xs bg-transparent border-white/10 text-white">
+            <SelectValue placeholder="Theme" />
+          </SelectTrigger>
+          <SelectContent className="bg-black/80 border-white/10 text-white">
+            <SelectGroup>
+              {Object.entries(colorThemes).map(([key, theme]) => (
+                <SelectItem key={key} value={key} className="text-xs hover:bg-white/10">
+                  {theme.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
