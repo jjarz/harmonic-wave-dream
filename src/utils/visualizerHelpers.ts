@@ -1,4 +1,3 @@
-
 /**
  * Generates a smooth waveform effect that responds to audio input
  * @param frequencyData The frequency data from audio analyser
@@ -66,12 +65,14 @@ export function generateCircular(
     
     // Apply angle-based variation for more interesting movement
     const angle = (i / numPoints) * Math.PI * 2;
-    const variationFactor = 1 + 0.3 * Math.sin(angle * 3); // Add wave pattern based on angle
+    // More subtle variation to reduce extreme differences that cause visual gaps
+    const variationFactor = 1 + 0.2 * Math.sin(angle * 3); 
     
     output.push(Math.min(1, average * sensitivity * variationFactor));
   }
   
-  return smoothArray(output, 0.4); // Less smoothing for more dynamic movement
+  // Apply more smoothing to ensure a consistent circular shape
+  return smoothArray(output, 0.6); 
 }
 
 /**
