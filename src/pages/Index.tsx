@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAudioAnalyzer } from '@/hooks/useAudioAnalyzer';
@@ -9,7 +10,7 @@ import AnimatedBackground from '@/components/AnimatedBackground';
 const Index = () => {
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [trackInfo, setTrackInfo] = useState<{ title?: string; artist?: string }>({});
-  const [visualizerType, setVisualizerType] = useState<'bars' | 'circular' | 'wave'>('bars');
+  const [visualizerType, setVisualizerType] = useState<'bars' | 'circular' | 'wave' | 'blob'>('bars');
   const [showUpload, setShowUpload] = useState(true);
   
   // Use our custom hook for audio analysis

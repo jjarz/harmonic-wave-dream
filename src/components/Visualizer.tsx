@@ -24,7 +24,7 @@ interface VisualizerProps {
   volume: number;
   sensitivity?: number;
   className?: string;
-  visualizationType?: 'bars' | 'circular' | 'wave';
+  visualizationType?: 'bars' | 'circular' | 'wave' | 'blob';
 }
 
 const Visualizer: React.FC<VisualizerProps> = ({
@@ -38,10 +38,11 @@ const Visualizer: React.FC<VisualizerProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [visualizerMode, setVisualizerMode] = useState<'bars' | 'circular' | 'wave'>(visualizationType);
+  const [visualizerMode, setVisualizerMode] = useState<'bars' | 'circular' | 'wave' | 'blob'>(visualizationType);
   const [colorTheme, setColorTheme] = useState<ColorTheme>('blue');
   const requestRef = useRef<number>();
   const previousTimeRef = useRef<number>();
+  const angleRef = useRef<number>(0);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -90,6 +91,8 @@ const Visualizer: React.FC<VisualizerProps> = ({
           drawCircularVisualizer(ctx, frequencyData, dimensions, sensitivity, volume, colorTheme);
         } else if (visualizerMode === 'wave') {
           drawWaveVisualizer(ctx, timeData, dimensions, sensitivity, volume, colorTheme);
+        } else if (visualizerMode === 'blob') {
+          drawBlobVisualizer(ctx, frequencyData, dimensions, sensitivity, volume, colorTheme);
         }
       } else {
         drawPlaceholderVisualizer(ctx, dimensions, colorTheme);
@@ -311,6 +314,119 @@ const Visualizer: React.FC<VisualizerProps> = ({
     ctx.shadowBlur = 0;
   };
 
+  const drawBlobVisualizer = (
+    ctx: CanvasRenderingContext2D,
+    data: Uint8Array,
+    dimensions: { width: number; height: number },
+    sensitivity: number,
+    volume: number,
+    theme: ColorTheme
+  ) => {
+    const { width, height } = dimensions;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const baseRadius = Math.min(width, height) * 0.25;
+    const numPoints = 64;
+    const values = generateWaveform(data, numPoints, sensitivity);
+    
+    angleRef.current += 0.01;
+    const time = Date.now() / 1000;
+
+    ctx.save();
+    
+    ctx.beginPath();
+    
+    for (let i = 0; i <= numPoints; i++) {
+      const index = i % numPoints;
+      const angle = (index / numPoints) * Math.PI * 2;
+      const position = index / numPoints;
+      
+      const blobFactor = values[index] * 0.8 * volume;
+      const dynamicRadius = baseRadius * (1 + 
+        blobFactor * Math.sin(angle * 3 + time * 1.5) +
+        blobFactor * 0.5 * Math.cos(angle * 5 + time * 2) +
+        blobFactor * 0.3 * Math.sin(angle * 7 + time * 2.5)
+      );
+      
+      const xShift = Math.cos(angleRef.current) * 0.1;
+      const yShift = Math.sin(angleRef.current) * 0.1;
+      const x = centerX + Math.cos(angle + xShift) * dynamicRadius;
+      const y = centerY + Math.sin(angle + yShift) * dynamicRadius * 0.9;
+      
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        const prevIndex = (index - 1 + numPoints) % numPoints;
+        const prevAngle = (prevIndex / numPoints) * Math.PI * 2;
+        const prevBlobFactor = values[prevIndex] * 0.8 * volume;
+        const prevDynamicRadius = baseRadius * (1 + 
+          prevBlobFactor * Math.sin(prevAngle * 3 + time * 1.5) +
+          prevBlobFactor * 0.5 * Math.cos(prevAngle * 5 + time * 2) +
+          prevBlobFactor * 0.3 * Math.sin(prevAngle * 7 + time * 2.5)
+        );
+        
+        const prevX = centerX + Math.cos(prevAngle + xShift) * prevDynamicRadius;
+        const prevY = centerY + Math.sin(prevAngle + yShift) * prevDynamicRadius * 0.9;
+        
+        const cpX = (prevX + x) / 2;
+        const cpY = (prevY + y) / 2;
+        
+        ctx.quadraticCurveTo(prevX, prevY, cpX, cpY);
+      }
+    }
+    
+    ctx.closePath();
+    
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetX = baseRadius * 0.1;
+    ctx.shadowOffsetY = baseRadius * 0.1;
+    
+    const gradientShiftX = Math.cos(angleRef.current) * 0.2 * baseRadius;
+    const gradientShiftY = Math.sin(angleRef.current) * 0.2 * baseRadius;
+    const gradient = ctx.createRadialGradient(
+      centerX - gradientShiftX, centerY - gradientShiftY, baseRadius * 0.1,
+      centerX, centerY, baseRadius * 1.5
+    );
+    
+    if (colorThemes[theme].isRainbow) {
+      const hueOffset = time * 20 % 360;
+      gradient.addColorStop(0, `hsla(${hueOffset}, 100%, 75%, 0.9)`);
+      gradient.addColorStop(0.5, `hsla(${(hueOffset + 120) % 360}, 100%, 60%, 0.8)`);
+      gradient.addColorStop(1, `hsla(${(hueOffset + 240) % 360}, 100%, 50%, 0.7)`);
+    } else {
+      gradient.addColorStop(0, colorThemes[theme].highlight);
+      gradient.addColorStop(0.5, colorThemes[theme].gradient[1]);
+      gradient.addColorStop(1, colorThemes[theme].gradient[0]);
+    }
+    
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    
+    ctx.beginPath();
+    const highlightAngle = angleRef.current + Math.PI * 0.25;
+    const highlightX = centerX - Math.cos(highlightAngle) * baseRadius * 0.5;
+    const highlightY = centerY - Math.sin(highlightAngle) * baseRadius * 0.5;
+    const highlightGradient = ctx.createRadialGradient(
+      highlightX, highlightY, 0,
+      highlightX, highlightY, baseRadius * 0.8
+    );
+    highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+    highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
+    highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    ctx.arc(highlightX, highlightY, baseRadius * 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = highlightGradient;
+    ctx.fill();
+    
+    ctx.restore();
+  };
+
   const drawPlaceholderVisualizer = (
     ctx: CanvasRenderingContext2D,
     dimensions: { width: number; height: number },
@@ -382,6 +498,17 @@ const Visualizer: React.FC<VisualizerProps> = ({
           )}
         >
           Wave
+        </button>
+        <button 
+          onClick={() => setVisualizerMode('blob')}
+          className={cn(
+            "px-3 py-1.5 text-xs rounded-md transition-all",
+            visualizerMode === 'blob' 
+              ? "bg-white/20 text-white" 
+              : "text-white/70 hover:text-white hover:bg-white/10"
+          )}
+        >
+          3D Blob
         </button>
       </div>
       
