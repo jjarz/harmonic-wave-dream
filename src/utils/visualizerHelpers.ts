@@ -23,11 +23,8 @@ export function generateWaveform(
         sum += frequencyData[index];
       }
     }
-    // Normalize and apply sensitivity
     const average = sum / sampleSize / 255;
-    
-    // Apply position-based variance (lower frequencies on left, higher on right)
-    const positionMultiplier = 0.7 + (i / numBars) * 0.6; // Values between 0.7-1.3 based on position
+    const positionMultiplier = 0.7 + (i / numBars) * 0.6;
     output.push(Math.min(1, average * sensitivity * positionMultiplier));
   }
   
@@ -60,18 +57,13 @@ export function generateCircular(
       }
     }
     
-    // Normalize and apply sensitivity
     const average = sum / sampleSize / 255;
-    
-    // Apply angle-based variation for more interesting movement
     const angle = (i / numPoints) * Math.PI * 2;
-    // More subtle variation to reduce extreme differences that cause visual gaps
-    const variationFactor = 1 + 0.2 * Math.sin(angle * 3); 
+    const variationFactor = 1 + 0.2 * Math.sin(angle * 3);
     
     output.push(Math.min(1, average * sensitivity * variationFactor));
   }
   
-  // Apply more smoothing to ensure a consistent circular shape
   return smoothArray(output, 0.6); 
 }
 
@@ -213,12 +205,10 @@ export function getThemeColor(position: number, value: number, theme: ColorTheme
     return getRainbowColor(position, value);
   }
   
-  // For normal themes, adjust color based on position and value
-  const hueShift = value * 20; // Subtle hue shift based on intensity
-  const saturationBoost = value * 30; // Boost saturation with higher values
-  const lightnessBoost = value * 20; // Boost lightness with higher values
+  const hueShift = value * 20;
+  const saturationBoost = value * 30;
+  const lightnessBoost = value * 20;
   
-  // Extract the base color from the theme's first gradient color
   const baseColor = selectedTheme.gradient[0];
   const matches = baseColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
   
@@ -228,7 +218,6 @@ export function getThemeColor(position: number, value: number, theme: ColorTheme
   const g = parseInt(matches[2]);
   const b = parseInt(matches[3]);
   
-  // Create a slightly modified version based on position and value
   const intensity = 0.7 + value * 0.3;
   const positionVariance = 0.7 + (position * 0.6);
   

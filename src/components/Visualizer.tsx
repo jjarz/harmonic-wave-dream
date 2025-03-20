@@ -5,7 +5,8 @@ import {
   generateCircular, 
   getThemeColor, 
   colorThemes, 
-  type ColorTheme 
+  type ColorTheme,
+  getRainbowColor
 } from '@/utils/visualizerHelpers';
 import { 
   Select, 
