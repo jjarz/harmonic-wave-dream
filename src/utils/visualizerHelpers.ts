@@ -122,31 +122,36 @@ export const colorThemes = {
     name: 'Blue',
     gradient: ['rgba(137, 207, 240, 0.8)', 'rgba(190, 227, 248, 0.9)', 'rgba(137, 207, 240, 0.8)'],
     highlight: 'rgba(255, 255, 255, 0.8)',
-    glow: 'rgba(255, 255, 255, 0.6)'
+    glow: 'rgba(255, 255, 255, 0.6)',
+    isRainbow: false
   },
   purple: {
     name: 'Purple',
     gradient: ['rgba(149, 128, 255, 0.8)', 'rgba(187, 169, 255, 0.9)', 'rgba(149, 128, 255, 0.8)'],
     highlight: 'rgba(240, 230, 255, 0.8)',
-    glow: 'rgba(180, 160, 255, 0.6)'
+    glow: 'rgba(180, 160, 255, 0.6)',
+    isRainbow: false
   },
   green: {
     name: 'Green',
     gradient: ['rgba(97, 205, 132, 0.8)', 'rgba(155, 236, 183, 0.9)', 'rgba(97, 205, 132, 0.8)'],
     highlight: 'rgba(220, 255, 230, 0.8)',
-    glow: 'rgba(130, 230, 160, 0.6)'
+    glow: 'rgba(130, 230, 160, 0.6)',
+    isRainbow: false
   },
   orange: {
     name: 'Orange',
     gradient: ['rgba(255, 146, 43, 0.8)', 'rgba(255, 186, 113, 0.9)', 'rgba(255, 146, 43, 0.8)'],
     highlight: 'rgba(255, 240, 220, 0.8)',
-    glow: 'rgba(255, 170, 100, 0.6)'
+    glow: 'rgba(255, 170, 100, 0.6)',
+    isRainbow: false
   },
   pink: {
     name: 'Pink',
     gradient: ['rgba(255, 105, 180, 0.8)', 'rgba(255, 182, 219, 0.9)', 'rgba(255, 105, 180, 0.8)'],
     highlight: 'rgba(255, 230, 242, 0.8)',
-    glow: 'rgba(255, 150, 200, 0.6)'
+    glow: 'rgba(255, 150, 200, 0.6)',
+    isRainbow: false
   },
   rainbow: {
     name: 'Rainbow',
